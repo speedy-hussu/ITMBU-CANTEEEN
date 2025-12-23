@@ -28,7 +28,9 @@ function App() {
   const [connectionError, setConnectionError] = useState(false);
 
   useEffect(() => {
-    const socket = new WebSocket("ws://localhost:5000/ws/student");
+    const socket = new WebSocket(
+      "wss://itmbu-canteeen.onrender.com/ws/student"
+    );
 
     socket.onopen = () => {
       console.log("✅ POS WebSocket connected");
