@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "npx tsx watch -r dotenv/config src/server.ts",
     "build": "tsc",
-    "start": "node dist/server.js"
+    "start": "node dist/online-ordering/backend/src/server.js"
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.2",
