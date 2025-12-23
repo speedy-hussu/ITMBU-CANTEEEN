@@ -1,7 +1,7 @@
 import { toast } from "sonner";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { useCartStore } from "@/store/cartStore";
-import type { BaseItem } from "@shared/types/item.types";
+import type { BaseItem } from "@shared/src/types/item.types";
 
 interface ItemCardProps {
   item: BaseItem;

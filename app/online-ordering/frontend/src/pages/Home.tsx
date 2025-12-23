@@ -1,11 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchItems } from "@/api/api";
 import ItemCard from "@/components/STUDENT/item-card";
-import type { MenuItem } from "@shared/types/item.types";
+import type { MenuItem } from "@shared/src/types/item.types";
 
 // Sample data will be replaced by the API response
 

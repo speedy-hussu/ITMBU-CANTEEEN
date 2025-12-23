@@ -1,7 +1,7 @@
 // store/cartStore.ts
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { CartItem, CartInput } from "@shared/types/item.types";
+import type { CartItem, CartInput } from "@shared/src/types/item.types";
 
 interface CartState {
   cart: CartItem[];
