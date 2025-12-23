@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Offline ordering backend with JWT auth for POS and KDS roles",
   "main": "src/server.ts",
-  "type": "module",
+  "type": "commonjs",
   "scripts": {
     "dev": "npx tsx watch -r dotenv/config src/server.ts",
     "build": "tsc",
