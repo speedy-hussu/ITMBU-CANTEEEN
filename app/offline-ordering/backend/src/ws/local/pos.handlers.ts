@@ -4,7 +4,7 @@ import type {
   Order,
   OrderStatus,
   OrderSource,
-} from "@shared/src/types/order.types";
+} from "@shared/types/order.types";
 import { OrderModel } from "../../database/models/order.model";
 import mongoose from "mongoose";
 

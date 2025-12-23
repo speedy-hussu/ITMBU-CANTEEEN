@@ -1,6 +1,6 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { getItemsController } from "./controllers/item.controller";
-import { ItemForm, StockItem } from "@shared/src/types/item.types";
+import { ItemForm, StockItem } from "@shared/types/item.types";
 
 /**
  * Item routes – mounted with prefix, e.g. `/api/items` in the main app file.

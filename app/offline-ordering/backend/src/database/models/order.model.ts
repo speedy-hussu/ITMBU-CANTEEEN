@@ -1,6 +1,6 @@
 // backend/models/Order.model.ts
 import mongoose, { Schema, Model } from "mongoose";
-import type { Order } from "@shared/src/types/order.types";
+import type { Order } from "@shared/types/order.types";
 
 // Order Item Schema (inline)
 const OrderItemSchema = new Schema(

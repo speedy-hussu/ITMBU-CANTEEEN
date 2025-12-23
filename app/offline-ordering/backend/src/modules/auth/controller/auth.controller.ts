@@ -1,6 +1,6 @@
 import { validateCredentials } from "../services/auth.service";
 import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
-import { StaffLoginRequest } from "@shared/src/types/user.types";
+import { StaffLoginRequest } from "@shared/types/user.types";
 
 export async function loginController(
   app: FastifyInstance,

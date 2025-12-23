@@ -1,5 +1,5 @@
 import { LocalWebSocketServer } from "./index";
-import type { Order, OrderStatus } from "@shared/src/types/order.types";
+import type { Order, OrderStatus } from "@shared/types/order.types";
 import { OrderModel } from "../../database/models/order.model";
 
 export const kdsHandlers = {

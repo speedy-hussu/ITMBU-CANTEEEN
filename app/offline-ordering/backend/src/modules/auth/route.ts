@@ -4,7 +4,7 @@ import {
   loginController,
   logoutController,
 } from "./controller/auth.controller";
-import { LoginRequest } from "@shared/src/types/user.types";
+import { LoginRequest } from "@shared/types/user.types";
 
 export default async function (app: FastifyInstance) {
   app.post<{ Body: LoginRequest }>(

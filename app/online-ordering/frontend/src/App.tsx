@@ -20,7 +20,7 @@ import {
   parseWebSocketMessage,
   type NewOrderPayload,
   type OrderCancelledPayload,
-} from "@shared/src/types/websocket.types";
+} from "@shared/types/websocket.types";
 
 function App() {
   const [ws, setWs] = useState<WebSocket | null>(null);

@@ -9,8 +9,8 @@ import type {
   Order,
   OrderStatus,
   OrderSource,
-} from "@shared/src/types/order.types";
-import type { WebSocketMessage } from "@shared/src/schemas/types/websocket.types";
+} from "@shared/types/order.types";
+import type { WebSocketMessage } from "@shared/schemas/types/websocket.types";
 import mongoose from "mongoose";
 
 interface Client {
