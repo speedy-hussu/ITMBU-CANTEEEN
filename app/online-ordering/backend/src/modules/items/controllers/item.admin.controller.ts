@@ -1,6 +1,6 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import Item from "../../../database/models/item.model";
-import { ItemForm, StockItem } from "@shared//src/types/item.types";
+import { ItemForm, StockItem } from "@shared/types/item.types";
 
 /**
  * Fetch all items
@@ -49,10 +49,14 @@ export async function updateItemController(
 ) {
   try {
     const { id } = req.params;
-    const updatedItem = await Item.findByIdAndUpdate(id, req.body, {
-      new: true,
-      runValidators: true,
-    }).lean();
+    const updatedItem = await Item.findByIdAndUpdate(
+      id,
+      req.body as Partial<StockItem>,
+      {
+        new: true,
+        runValidators: true,
+      }
+    ).lean();
 
     if (!updatedItem) {
       return reply.status(404).send({ error: "Item not found" });
