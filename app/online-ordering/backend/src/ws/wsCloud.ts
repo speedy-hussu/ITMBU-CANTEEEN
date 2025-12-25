@@ -4,9 +4,8 @@ import { WebSocket } from "ws";
 import {
   WebSocketMessageBuilder,
   parseWebSocketMessage,
-  type StudentOrderPayload,
   type OrderAckPayload,
-} from "@shared/types/websocket.types";
+} from "../../../../shared/types/websocket.types";
 
 interface PendingOrder {
   cloudOrderId: string;
