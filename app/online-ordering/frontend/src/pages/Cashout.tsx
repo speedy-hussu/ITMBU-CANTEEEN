@@ -4,6 +4,7 @@ import { useCartStore } from "@/store/cartStore";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
 import CartItem from "@/components/STUDENT/cart-item";
+import { useOrderStore } from "@/store/orderStore";
 
 interface CartProps {
   ws: WebSocket | null;
@@ -11,6 +12,7 @@ interface CartProps {
 
 export default function Cashout({ ws }: CartProps) {
   const { cart, getCartTotal } = useCartStore();
+  const { addOrder } = useOrderStore();
   const cartTotal = getCartTotal();
 
   const placeOrder = () => {
@@ -24,41 +26,40 @@ export default function Cashout({ ws }: CartProps) {
       return;
     }
 
-    // Generate a unique token for the order
     const orderToken = `TKN-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
-    // ✅ Simplified order message structure
+    // ✅ 1. Create ORDER (reusable)
+    const order = {
+      _id: orderToken,
+      token: orderToken,
+      items: cart.map((item) => ({
+        _id: item._id,
+        name: item.name,
+        price: Number(item.price),
+        category: item.category,
+        quantity: Number(item.quantity),
+      })),
+      totalAmount: cartTotal,
+      status: "PENDING" as const,
+      source: "STUDENT" as const,
+      createdAt: new Date().toISOString(),
+    };
+
+    // ✅ 2. Store locally (Zustand)
+    addOrder(order);
+
+    // ✅ 3. Wrap order for WebSocket
     const orderMessage = {
       type: "student_order",
-      payload: {
-        order: {
-          token: orderToken,
-          items: cart.map((item) => ({
-            _id: item._id,
-            name: item.name,
-            price: Number(item.price),
-            category: item.category,
-            quantity: Number(item.quantity),
-          })),
-          totalAmount: cartTotal,
-          status: "PENDING",
-          source: "STUDENT",
-          createdAt: new Date().toISOString(),
-        },
-      },
+      payload: { order },
       timestamp: Date.now(),
     };
 
     try {
       ws.send(JSON.stringify(orderMessage));
-      console.log("📤 Order sent to Cloud:", orderMessage);
       toast.success("Order placed successfully!");
-
-      // Optional: Clear cart after successful order
-      // clearCart();
     } catch (error) {
-      console.error("Failed to send order:", error);
-      toast.error("Failed to place order. Please try again.");
+      toast.error("Failed to place order");
     }
   };
 

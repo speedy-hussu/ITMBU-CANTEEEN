@@ -10,7 +10,7 @@ import type {
   OrderStatus,
   OrderSource,
 } from "@shared/types/order.types";
-import type { WebSocketMessage } from "@shared/schemas/types/websocket.types";
+import type { WebSocketMessage } from "../../../../../shared/types/index";
 import mongoose from "mongoose";
 
 interface Client {
@@ -34,7 +34,6 @@ export class LocalWebSocketServer {
     this.app.get("/ws/local", { websocket: true }, (connection, req) => {
       this.handleConnection(connection, req);
     });
-
     console.log("✅ Local WebSocket Server initialized (LAN only)");
     this.connectToCloud();
   }
@@ -46,18 +45,15 @@ export class LocalWebSocketServer {
       console.log("⚠️  No CLOUD_WS_URL configured, running in offline mode");
       return;
     }
-
     console.log(`🔄 Connecting to cloud: ${CLOUD_URL}`);
-
     try {
       this.cloudConnection = new WebSocket(CLOUD_URL);
-
       this.cloudConnection.on("open", () => {
         console.log("✅ Connected to cloud server");
         this.reconnectAttempts = 0;
 
         // Send connection confirmation
-        //   this.sendToCloud({
+        //   this.broadcastToStudent({
         //     type: "local_connected",
         //     payload: {
         //       message: "Local server connected",
@@ -156,7 +152,7 @@ export class LocalWebSocketServer {
    * Send message to cloud server
    * Public method used by handlers
    */
-  sendToCloud(message: WebSocketMessage) {
+  broadcastToStudent(message: WebSocketMessage) {
     if (this.cloudConnection?.readyState === WebSocket.OPEN) {
       try {
         this.cloudConnection.send(JSON.stringify(message));

@@ -101,7 +101,7 @@ export default function OrderCard({ order, ws }: Props) {
 
   return (
     <Card
-      className="text-[#333] relative h-65 flex flex-col justify-between bg-white p-3 
+      className="text-[#333] relative h-65 flex flex-col gap-0 justify-between bg-white p-3 
     rounded-xl  transition duration-300 ease-in-out shadow-sm border"
     >
       <div>
@@ -158,7 +158,7 @@ export default function OrderCard({ order, ws }: Props) {
       </div>
 
       <Button
-        className="w-full mt-4 bg-gradient-to-r from-[#667eea] to-[#764ba2] 
+        className="w-full bg-gradient-to-r from-[#667eea] to-[#764ba2] 
             hover:from-[#5a6fd8] hover:to-[#6a3f8f] text-white font-semibold"
         disabled={!canComplete}
         onClick={handleDone}

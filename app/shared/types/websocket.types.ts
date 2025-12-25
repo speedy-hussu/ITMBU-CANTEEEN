@@ -9,6 +9,8 @@ import type { Order, OrderStatus } from "./order.types";
 // ============================================
 
 export type WebSocketMessageType =
+  | "local_ws_connected"
+  | "cloud_ws_connected"
   | "new_order"
   | "order_completed"
   | "order_cancelled"

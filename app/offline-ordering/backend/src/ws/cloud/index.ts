@@ -6,7 +6,7 @@ import type {
   OrderSource,
 } from "@shared/types/order.types";
 import { OrderModel } from "../../database/models/order.model";
-import type { WebSocketMessage } from "@shared/schemas/types/websocket.types";
+import type { WebSocketMessage } from "../../../../../shared/types/websocket.types";
 import mongoose from "mongoose";
 
 export const cloudHandlers = {
@@ -71,7 +71,7 @@ export const cloudHandlers = {
       });
 
       // Acknowledge to cloud
-      server.sendToCloud({
+      server.broadcastToStudent({
         type: "order_ack",
         payload: {
           cloudOrderId,
@@ -87,7 +87,7 @@ export const cloudHandlers = {
 
       // Send failure acknowledgment to cloud
       const { cloudOrderId } = payload;
-      server.sendToCloud({
+      server.broadcastToStudent({
         type: "order_ack",
         payload: {
           cloudOrderId,
@@ -178,7 +178,7 @@ export const cloudHandlers = {
         timestamp: Date.now(),
       };
 
-      server.sendToCloud(message);
+      server.broadcastToStudent(message);
       console.log(`✅ Notified cloud of completed order: ${order.token}`);
     } catch (error) {
       console.error("❌ Failed to notify order completion:", error);
@@ -215,7 +215,7 @@ export const cloudHandlers = {
         timestamp: Date.now(),
       };
 
-      server.sendToCloud(message);
+      server.broadcastToStudent(message);
       console.log(`❌ Notified cloud of cancelled order: ${order.token}`);
     } catch (error) {
       console.error("❌ Failed to notify order cancellation:", error);
@@ -249,7 +249,7 @@ export const cloudHandlers = {
         timestamp: Date.now(),
       };
 
-      server.sendToCloud(message);
+      server.broadcastToStudent(message);
       console.log(
         `📦 Notified cloud of status update: ${order.token} → ${status}`
       );

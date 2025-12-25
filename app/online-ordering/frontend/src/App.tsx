@@ -21,16 +21,15 @@ import {
   type NewOrderPayload,
   type OrderCancelledPayload,
 } from "@shared/types/websocket.types";
+import { useOrderStore } from "./store/orderStore";
 
 function App() {
   const [ws, setWs] = useState<WebSocket | null>(null);
   const [isConnecting, setIsConnecting] = useState(true);
   const [connectionError, setConnectionError] = useState(false);
-
+  const { updateOrderStatus } = useOrderStore();
   useEffect(() => {
-    const socket = new WebSocket(
-      "wss://itmbu-canteeen.onrender.com/ws/student"
-    );
+    const socket = new WebSocket("ws://localhost:5000/ws/student");
 
     socket.onopen = () => {
       console.log("✅ POS WebSocket connected");
@@ -109,7 +108,7 @@ function App() {
             console.error("Invalid order_completed payload:", payload);
             break;
           }
-
+          updateOrderStatus(payload.token, "COMPLETED");
           toast.success(`🎉 Order #${payload.token} is ready for pickup!`, {
             duration: 5000,
           });

@@ -34,7 +34,6 @@ export const kdsHandlers = {
     console.log("🔵 completeOrder handler called");
     console.log("   Payload:", JSON.stringify(payload, null, 2));
 
-    // ✅ Handle orderId from payload
     const orderId = payload.orderId;
 
     await OrderModel.findByIdAndUpdate(
@@ -73,9 +72,8 @@ export const kdsHandlers = {
     server.setOrder(orderId, completedOrder);
 
     console.log(`✅ KDS: Order completed #${order.token}`);
-    console.log("📤 Broadcasting to POS devices...");
 
-    // ✅ Broadcast to POS with correct structure
+    // ✅ Prepare message
     const message = {
       type: "order_completed",
       payload: {
@@ -83,8 +81,18 @@ export const kdsHandlers = {
         order: completedOrder,
       },
       timestamp: Date.now(),
-    };
-    server.broadcastToPOS(message);
+    } as const;
+
+    // ✅ Route based on order source
+    if (order.source === "POS") {
+      console.log("📤 Broadcasting to POS devices...");
+      server.broadcastToPOS(message);
+    } else if (order.source === "STUDENT") {
+      console.log("📤 Sending to cloud for student...");
+      // TODO: Send to your cloud API/service for student notification
+      // await broadcastToStudent(message);
+      server.broadcastToStudent(message);
+    }
 
     console.log("✅ Broadcast complete");
 
@@ -97,13 +105,8 @@ export const kdsHandlers = {
       },
       timestamp: Date.now(),
     });
-
-    // Optional: Remove completed orders after 5 minutes
-    // setTimeout(() => {
-    //   server.deleteOrder(orderId);
-    //   console.log(`🗑️  Order ${order.token} removed from memory`);
-    // }, 300000);
   },
+
   async cancelOrder(payload: any, server: LocalWebSocketServer) {
     console.log("🔵 cancelledOrder handler called");
     console.log("   Payload:", JSON.stringify(payload, null, 2));
@@ -127,7 +130,6 @@ export const kdsHandlers = {
     server.deleteOrder(orderId);
 
     console.log(`❌ KDS: Order cancelled #${order.token}`);
-    console.log("📤 Broadcasting to POS devices...");
 
     const cancelledPayload = {
       type: "order_cancelled",
@@ -136,10 +138,18 @@ export const kdsHandlers = {
         token: order.token,
       },
       timestamp: Date.now(),
-    };
+    } as const;
 
-    // broadcast to POS
-    server.broadcastToPOS(cancelledPayload);
+    // ✅ Route based on order source
+    if (order.source === "POS") {
+      console.log("📤 Broadcasting to POS devices...");
+      server.broadcastToPOS(cancelledPayload);
+    } else if (order.source === "STUDENT") {
+      console.log("📤 Sending to cloud for student...");
+      // TODO: Send to your cloud API/service for student notification
+      // await broadcastToStudent(cancelledPayload);
+      server.broadcastToStudent(cancelledPayload);
+    }
 
     console.log("✅ Broadcast complete");
 

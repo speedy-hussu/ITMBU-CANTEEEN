@@ -11,7 +11,7 @@ import {
   type NewOrderPayload,
   type OrderCompletedPayload,
   type SyncOrdersPayload,
-} from "@shared/types/websocket.types";
+} from "../../../../shared/types/index";
 
 export default function Orders() {
   const { orders, addOrder, updateOrder, removeOrder, setOrders } =
