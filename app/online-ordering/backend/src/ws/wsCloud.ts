@@ -1,7 +1,12 @@
-// ☁️ CLOUD SERVER - WebSocket Handler
+// ☁️ CLOUD SERVER - WebSocket Handler with Typed Messages
 import { FastifyInstance } from "fastify";
 import { WebSocket } from "ws";
-// import type { WebSocketMessage } from "@shared/types/websocket.types";
+import {
+  WebSocketMessageBuilder,
+  parseWebSocketMessage,
+  type StudentOrderPayload,
+  type OrderAckPayload,
+} from "@shared/types/websocket.types";
 
 interface PendingOrder {
   cloudOrderId: string;
@@ -38,15 +43,23 @@ export class CloudWebSocketServer {
     // REST API for student orders (fallback)
     this.app.post("/api/orders", async (request, reply) => {
       try {
+        // ✅ CHECK: Is KDS (local server) connected?
+        if (!this.isLocalConnected) {
+          return reply.code(503).send({
+            success: false,
+            error: "KDS is offline",
+            message:
+              "Kitchen Display System is not connected. Please try again later.",
+          });
+        }
+
         const order = request.body;
         const result = await this.receiveStudentOrder(order);
 
         return reply.code(201).send({
           success: true,
           ...result,
-          message: result.queued
-            ? "Order queued, will be sent when canteen is online"
-            : "Order sent to canteen",
+          message: "Order sent to KDS",
         });
       } catch (error) {
         console.error("Error creating order:", error);
@@ -57,9 +70,10 @@ export class CloudWebSocketServer {
       }
     });
 
-    // Status endpoint - check if local canteen is online
+    // Status endpoint
     this.app.get("/api/status", async () => ({
       canteenOnline: this.isLocalConnected,
+      kdsOnline: this.isLocalConnected,
       pendingOrders: this.pendingOrders.size,
       connectedStudents: this.studentConnections.size,
       uptime: process.uptime(),
@@ -89,7 +103,6 @@ export class CloudWebSocketServer {
   private handleLocalConnection(socket: WebSocket) {
     console.log("🔌 Local server connecting...");
 
-    // Close existing connection if any
     if (this.localConnection) {
       console.log("⚠️  Replacing existing local connection");
       this.localConnection.close();
@@ -99,40 +112,44 @@ export class CloudWebSocketServer {
     this.isLocalConnected = true;
 
     console.log("✅ Local server connected to cloud!\n");
+    console.log("✅ KDS is now ONLINE and accepting orders\n");
 
-    // Start heartbeat to keep connection alive
+    // ✅ Notify all students that KDS is online
+    this.broadcastToStudents(
+      WebSocketMessageBuilder.kdsStatus(true, "KDS is now online")
+    );
+
     this.startHeartbeat();
 
-    // Sync any pending orders
-    this.syncPendingOrders();
-
-    // Handle incoming messages from local
     socket.on("message", (data: Buffer) => {
       try {
         const message: any = JSON.parse(data.toString());
         this.handleLocalMessage(message);
-        console.log("order send to local", message);
       } catch (error) {
         console.error("❌ Error parsing local message:", error);
       }
     });
 
-    // Handle disconnection
     socket.on("close", (code: number, reason: Buffer) => {
       console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
       console.log("❌ Local server disconnected from cloud");
+      console.log("❌ KDS is now OFFLINE");
       console.log(`   Code: ${code}, Reason: ${reason.toString() || "None"}`);
       console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
       this.isLocalConnected = false;
       this.localConnection = null;
       this.stopHeartbeat();
+
+      // ✅ Notify all students that KDS is offline
+      this.broadcastToStudents(
+        WebSocketMessageBuilder.kdsStatus(false, "KDS went offline")
+      );
     });
 
     socket.on("error", (error: Error) => {
       console.error("❌ Local WebSocket error:", error.message);
     });
 
-    // Handle pong responses (for heartbeat)
     socket.on("pong", () => {
       console.log("💓 Heartbeat acknowledged by local");
     });
@@ -174,7 +191,7 @@ export class CloudWebSocketServer {
     }
   }
 
-  private handleOrderAcknowledgment(payload: any) {
+  private handleOrderAcknowledgment(payload: OrderAckPayload) {
     const { cloudOrderId, success, localOrderId, error } = payload;
 
     if (success && cloudOrderId) {
@@ -183,29 +200,28 @@ export class CloudWebSocketServer {
         `✅ Order acknowledged: ${cloudOrderId} (Local ID: ${localOrderId})`
       );
 
-      this.broadcastToStudents({
-        type: "order_ack",
-        payload: { cloudOrderId, localOrderId, success: true },
-        timestamp: Date.now(),
-      });
+      // ✅ Use typed message builder
+      this.broadcastToStudents(
+        WebSocketMessageBuilder.orderAck(cloudOrderId, true, localOrderId)
+      );
     } else {
       console.error(`❌ Order acknowledgment failed: ${cloudOrderId}`, error);
 
-      this.broadcastToStudents({
-        type: "order_ack",
-        payload: {
-          cloudOrderId,
-          success: false,
-          error: error || "Unknown error",
-        },
-        timestamp: Date.now(),
-      });
+      // ✅ Use typed message builder
+      this.broadcastToStudents(
+        WebSocketMessageBuilder.orderAck(
+          cloudOrderId || "",
+          false,
+          undefined,
+          error || "Unknown error"
+        )
+      );
 
-      const pendingOrder = this.pendingOrders.get(cloudOrderId);
+      const pendingOrder = this.pendingOrders.get(cloudOrderId || "");
       if (pendingOrder) {
         pendingOrder.attempts++;
         if (pendingOrder.attempts >= 3) {
-          this.pendingOrders.delete(cloudOrderId);
+          this.pendingOrders.delete(cloudOrderId || "");
           console.log(`❌ Order ${cloudOrderId} failed after 3 attempts`);
         }
       }
@@ -248,49 +264,52 @@ export class CloudWebSocketServer {
   }
 
   // ==================== STUDENT BACKEND CONNECTION ====================
-  // In your Cloud Server (cloud/index.ts)
-  // Replace the student connection handler with this fixed version:
-
   private handleStudentConnection(socket: WebSocket) {
     console.log("🎓 Student backend connected to cloud");
 
     this.studentConnections.add(socket);
 
-    // Send initial connection message
+    // ✅ Send initial connection with KDS status using typed builder
     socket.send(
-      JSON.stringify({
-        type: "connection_established",
-        payload: {
-          message: "Connected to cloud server",
-          canteenOnline: this.isLocalConnected,
-        },
-        timestamp: Date.now(),
-      })
+      JSON.stringify(
+        WebSocketMessageBuilder.connectionEstablished(this.isLocalConnected)
+      )
     );
 
     socket.on("message", async (data: Buffer) => {
       try {
-        const message = JSON.parse(data.toString());
+        const message = parseWebSocketMessage(data.toString());
+        if (!message) return;
 
         if (message.type === "student_order") {
-          console.log("📥 Student order received from student:", message);
+          console.log("📥 Student order received:", message);
 
-          // ✅ FIX: Pass the order data correctly
-          const result = await this.receiveStudentOrder(
-            message.payload.order // Just the order object
-          );
+          // ✅ CHECK: Is KDS connected?
+          if (!this.isLocalConnected) {
+            console.log("❌ Order rejected - KDS is offline");
+            socket.send(
+              JSON.stringify(
+                WebSocketMessageBuilder.orderRejected(
+                  "KDS is offline",
+                  "Kitchen Display System is not connected. Please try again later."
+                )
+              )
+            );
+            return;
+          }
 
-          // Optionally confirm reception back to the student
+          // Process the order
+          const result = await this.receiveStudentOrder(message.payload.order);
+
+          // ✅ Confirm reception using typed builder
           socket.send(
-            JSON.stringify({
-              type: "student_order_received",
-              payload: {
-                cloudOrderId: result.cloudOrderId,
-                success: true,
-                queued: result.queued,
-              },
-              timestamp: Date.now(),
-            })
+            JSON.stringify(
+              WebSocketMessageBuilder.studentOrderReceived(
+                result.cloudOrderId,
+                true,
+                result.queued
+              )
+            )
           );
         }
       } catch (error) {
@@ -319,12 +338,10 @@ export class CloudWebSocketServer {
     });
   }
 
-  // ✅ Also update receiveStudentOrder to generate cloudOrderId internally
   async receiveStudentOrder(order: any): Promise<{
     queued: boolean;
     cloudOrderId: string;
   }> {
-    // Generate cloudOrderId here instead of expecting it from outside
     const cloudOrderId = `CLOUD-${Date.now()}-${Math.random()
       .toString(36)
       .substr(2, 9)}`;
@@ -335,24 +352,16 @@ export class CloudWebSocketServer {
     });
 
     if (this.isLocalConnected) {
-      this.sendToLocal({
-        type: "student_order",
-        payload: { cloudOrderId, order },
-        timestamp: Date.now(),
-      });
+      // ✅ Use typed message builder
+      this.sendToLocal(
+        WebSocketMessageBuilder.studentOrder(cloudOrderId, order)
+      );
 
-      console.log(`📤 Student order sent to local: ${cloudOrderId}`);
+      console.log(`📤 Student order sent to KDS: ${cloudOrderId}`);
       return { queued: false, cloudOrderId };
     } else {
-      this.pendingOrders.set(cloudOrderId, {
-        cloudOrderId,
-        order,
-        timestamp: Date.now(),
-        attempts: 0,
-      });
-
-      console.log(`📥 Student order queued (local offline): ${cloudOrderId}`);
-      return { queued: true, cloudOrderId };
+      console.log(`❌ Order rejected - KDS offline: ${cloudOrderId}`);
+      throw new Error("KDS is offline");
     }
   }
 
@@ -376,29 +385,7 @@ export class CloudWebSocketServer {
     }
   }
 
-  // ==================== ORDER MANAGEMENT ====================
-  private syncPendingOrders() {
-    if (this.pendingOrders.size === 0) {
-      console.log("✅ No pending orders to sync");
-      return;
-    }
-
-    console.log(`🔄 Syncing ${this.pendingOrders.size} pending orders`);
-
-    const orders = Array.from(this.pendingOrders.values()).map((po) => ({
-      cloudOrderId: po.cloudOrderId,
-      order: po.order,
-    }));
-
-    this.sendToLocal({
-      type: "sync_orders",
-      payload: { orders },
-      timestamp: Date.now(),
-    });
-  }
-
-
-  // ==================== HEARTBEAT & CONNECTION MONITORING ====================
+  // ==================== HEARTBEAT ====================
   private startHeartbeat() {
     this.stopHeartbeat();
 
@@ -433,14 +420,7 @@ export class CloudWebSocketServer {
       }
     } else {
       console.log(`⚠️  Cannot send to local - not connected`);
-    }
-  }
-
-  public triggerSync() {
-    if (this.isLocalConnected) {
-      this.syncPendingOrders();
-    } else {
-      console.log("⚠️  Cannot sync - local not connected");
+      throw new Error("KDS is not connected");
     }
   }
 

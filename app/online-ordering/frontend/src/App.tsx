@@ -1,3 +1,5 @@
+// App.tsx - Using typed WebSocket messages
+
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 const queryClient = new QueryClient();
 
@@ -20,6 +22,12 @@ import {
   parseWebSocketMessage,
   type NewOrderPayload,
   type OrderCancelledPayload,
+  type ConnectionEstablishedPayload,
+  type KDSStatusPayload,
+  type OrderRejectedPayload,
+  type StudentOrderReceivedPayload,
+  type OrderAckPayload,
+  type OrderCompletedPayload,
 } from "@shared/types/websocket.types";
 import { useOrderStore } from "./store/orderStore";
 
@@ -27,7 +35,9 @@ function App() {
   const [ws, setWs] = useState<WebSocket | null>(null);
   const [isConnecting, setIsConnecting] = useState(true);
   const [connectionError, setConnectionError] = useState(false);
+  const [kdsOnline, setKdsOnline] = useState(false); // ✅ Track KDS status
   const { updateOrderStatus } = useOrderStore();
+
   useEffect(() => {
     const socket = new WebSocket("ws://localhost:5000/ws/student");
 
@@ -48,6 +58,7 @@ function App() {
         `WebSocket disconnected: ${event.code} ${event.reason || ""}`
       );
       setIsConnecting(false);
+      setKdsOnline(false);
       if (event.code !== 1000) {
         setConnectionError(true);
       }
@@ -78,6 +89,72 @@ function App() {
       );
 
       switch (data.type) {
+        // ✅ Handle initial connection with KDS status
+        case "connection_established": {
+          const payload = data.payload as ConnectionEstablishedPayload;
+          const isKdsOnline = payload?.kdsOnline || false;
+          setKdsOnline(isKdsOnline);
+          console.log("🔌 Connected to cloud. KDS status:", isKdsOnline);
+
+          if (!isKdsOnline) {
+            toast.warning("Connected, but kitchen is offline");
+          }
+          break;
+        }
+
+        // ✅ Handle real-time KDS status updates
+        case "kds_status": {
+          const payload = data.payload as KDSStatusPayload;
+          const isOnline = payload?.online || false;
+          setKdsOnline(isOnline);
+
+          if (isOnline) {
+            toast.success(" Kitchen is now online!");
+          } else {
+            toast.warning(" Kitchen went offline");
+          }
+          break;
+        }
+
+        // ✅ Handle order rejection when KDS is offline
+        case "order_rejected": {
+          const payload = data.payload as OrderRejectedPayload;
+          toast.error("❌ Order rejected - Kitchen is offline", {
+            description:
+              payload.message || "Please try again when kitchen is available",
+            duration: 5000,
+          });
+          break;
+        }
+
+        // ✅ Order received by cloud
+        case "student_order_received": {
+          const payload = data.payload as StudentOrderReceivedPayload;
+          console.log("Order received by cloud:", payload);
+
+          if (payload.success) {
+            toast.success(`Order ${payload.cloudOrderId} received`);
+          }
+          break;
+        }
+
+        // ✅ Order acknowledged by kitchen
+        case "order_ack": {
+          const payload = data.payload as OrderAckPayload;
+
+          if (payload.success && payload.localOrderId) {
+            toast.success(
+              `✅ Order confirmed! Kitchen ID: ${payload.localOrderId}`
+            );
+            console.log(
+              `Order ${payload.cloudOrderId} → Kitchen ${payload.localOrderId}`
+            );
+          } else {
+            toast.error(`❌ Order failed: ${payload.error || "Unknown error"}`);
+          }
+          break;
+        }
+
         case "new_order": {
           const payload = data.payload as NewOrderPayload;
           if (!payload) {
@@ -86,7 +163,6 @@ function App() {
             break;
           }
 
-          // Extract token from either payload.token or payload.order?.token
           const orderToken = payload.order.token || payload.order?.token;
           const orderId = payload.order._id;
 
@@ -102,7 +178,7 @@ function App() {
         }
 
         case "order_completed": {
-          const payload = data.payload;
+          const payload = data.payload as OrderCompletedPayload;
 
           if (!payload?.token) {
             console.error("Invalid order_completed payload:", payload);
@@ -123,7 +199,7 @@ function App() {
           console.log("token", token);
           toast.info(`Order #${token} is cancelled`);
           console.log("order_cancelled:", payload);
-
+          updateOrderStatus(payload.token, "CANCELLED");
           break;
         }
 
@@ -134,7 +210,7 @@ function App() {
 
     ws.addEventListener("message", handleMessage);
     return () => ws.removeEventListener("message", handleMessage);
-  }, [ws]);
+  }, [ws, updateOrderStatus]);
 
   if (isConnecting) {
     return (
@@ -161,14 +237,19 @@ function App() {
       </div>
     );
   }
+
   return (
     <QueryClientProvider client={queryClient}>
       <Router>
-        <div className="min-h-[calc(100dvh-260px)] w-md md:w-lg lg:w-3xl  ">
+        <div className="min-h-[calc(100dvh-260px)] w-md md:w-lg lg:w-3xl">
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/login" element={<Login />} />
-            <Route path="/cart" element={<Cashout ws={ws} />} />
+            {/* ✅ Pass kdsOnline to Cashout */}
+            <Route
+              path="/cart"
+              element={<Cashout ws={ws} kdsOnline={kdsOnline} />}
+            />
             <Route path="/orders" element={<MyOrders />} />
             <Route path="/profile" element={<UserProfile />} />
             <Route path="*" element={<Navigate to="/" replace />} />
