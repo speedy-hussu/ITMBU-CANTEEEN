@@ -397,7 +397,7 @@ export class CloudWebSocketServer {
           console.error("Failed to send heartbeat:", error);
         }
       }
-    }, 30000);
+    }, 25000);
   }
 
   private stopHeartbeat() {

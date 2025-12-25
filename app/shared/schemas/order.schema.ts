@@ -66,6 +66,10 @@ const orderSchema = {
     enum: ["POS", "STUDENT", "ADMIN"],
     required: true,
   },
+  synced: {
+    type: Boolean,
+    default: false,
+  },
 
   createdAt: {
     type: String,
@@ -76,7 +80,6 @@ const orderSchema = {
     type: String,
   },
 };
-
 
 // ============================================
 // EXPORTS

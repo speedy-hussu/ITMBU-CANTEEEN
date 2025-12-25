@@ -69,6 +69,10 @@ const OrderSchema = new Schema(
       enum: ["POS", "STUDENT", "ADMIN"],
       required: true,
     },
+    synced: {
+      type: Boolean,
+      default: false,
+    },
     createdAt: {
       type: String,
       required: true,

@@ -266,8 +266,8 @@ export class LocalWebSocketServer {
             await kdsHandlers.cancelOrder(payload, this);
           } else if (client.type === "pos") {
             // Cancelled from POS (e.g., wrong order)
-            console.log("🔔 order_cancelled from POS");
-            await posHandlers.cancelOrder(payload, this);
+            // console.log("🔔 order_cancelled from POS");
+            // await posHandlers.cancelOrder(payload, this);
           }
 
           // Notify cloud of cancellation

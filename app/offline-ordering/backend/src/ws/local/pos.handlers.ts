@@ -8,6 +8,7 @@ import type {
 import { OrderModel } from "../../database/models/order.model";
 import mongoose from "mongoose";
 
+
 export const posHandlers = {
   /**
    * Create new order from POS
@@ -50,6 +51,7 @@ export const posHandlers = {
         totalAmount: finalTotal,
         status: "PENDING" as OrderStatus,
         source: "POS" as OrderSource,
+        synced: false,
         createdAt: new Date().toISOString(),
       };
 
@@ -66,7 +68,7 @@ export const posHandlers = {
         status: savedOrder.status,
         source: savedOrder.source,
         createdAt: savedOrder.createdAt,
-        synced: true,
+        synced: false,
       };
 
       // ✅ STEP 6: Store in memory for fast access
@@ -106,57 +108,58 @@ export const posHandlers = {
    * Cancel order from POS
    * Flow: Update DB → Update memory → Broadcast
    */
-  async cancelOrder(payload: any, server: LocalWebSocketServer) {
-    try {
-      const { orderId } = payload;
+  // not need now
+  // async cancelOrder(payload: any, server: LocalWebSocketServer) {
+  //   try {
+  //     const { orderId } = payload;
 
-      if (!orderId) {
-        throw new Error("orderId is required");
-      }
+  //     if (!orderId) {
+  //       throw new Error("orderId is required");
+  //     }
 
-      console.log(`🗑️  Cancelling order: ${orderId}`);
+  //     console.log(`🗑️  Cancelling order: ${orderId}`);
 
-      // ✅ STEP 1: Update in MongoDB
-      const updatedOrder = await OrderModel.findByIdAndUpdate(
-        orderId,
-        {
-          $set: {
-            status: "CANCELLED",
-            cancelledAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          },
-        },
-        { new: true }
-      );
+  //     // ✅ STEP 1: Update in MongoDB
+  //     const updatedOrder = await OrderModel.findByIdAndUpdate(
+  //       orderId,
+  //       {
+  //         $set: {
+  //           status: "CANCELLED",
+  //           cancelledAt: new Date().toISOString(),
+  //           updatedAt: new Date().toISOString(),
+  //         },
+  //       },
+  //       { new: true }
+  //     );
 
-      if (!updatedOrder) {
-        console.log(`⚠️  Order not found in DB: ${orderId}`);
-        return;
-      }
+  //     if (!updatedOrder) {
+  //       console.log(`⚠️  Order not found in DB: ${orderId}`);
+  //       return;
+  //     }
 
-      console.log(`💾 Order #${updatedOrder.token} cancelled in DB`);
+  //     console.log(`💾 Order #${updatedOrder.token} cancelled in DB`);
 
-      // ✅ STEP 2: Update in memory
-      const memoryOrder = server.getOrders().get(orderId);
-      if (memoryOrder) {
-        const cancelledOrder: Order = {
-          ...memoryOrder,
-          status: "CANCELLED" as OrderStatus,
-        };
-        server.setOrder(orderId, cancelledOrder);
-      }
+  //     // ✅ STEP 2: Update in memory
+  //     const memoryOrder = server.getOrders().get(orderId);
+  //     if (memoryOrder) {
+  //       const cancelledOrder: Order = {
+  //         ...memoryOrder,
+  //         status: "CANCELLED" as OrderStatus,
+  //       };
+  //       server.setOrder(orderId, cancelledOrder);
+  //     }
 
-      // ✅ STEP 3: Broadcast cancellation
-      server.broadcast({
-        type: "order_cancelled",
-        payload: { orderId },
-        timestamp: Date.now(),
-      });
+  //     // ✅ STEP 3: Broadcast cancellation
+  //     server.broadcast({
+  //       type: "order_cancelled",
+  //       payload: { orderId },
+  //       timestamp: Date.now(),
+  //     });
 
-      console.log(`✅ Order #${updatedOrder.token} cancelled successfully`);
-    } catch (error) {
-      console.error("❌ Failed to cancel order:", error);
-      throw error;
-    }
-  },
+  //     console.log(`✅ Order #${updatedOrder.token} cancelled successfully`);
+  //   } catch (error) {
+  //     console.error("❌ Failed to cancel order:", error);
+  //     throw error;
+  //   }
+  // },
 };

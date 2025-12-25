@@ -51,6 +51,7 @@ function Cart({ ws }: CartProps) {
         })),
         token: token,
         total: totalPrice,
+        synced: false,
       },
       timestamp: Date.now(),
     };
