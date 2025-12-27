@@ -33,20 +33,20 @@ export default function Cashout({ ws, kdsOnline }: CartProps) {
       return;
     }
 
-    // ✅ CHECK: Is KDS online?
-    if (!kdsOnline) {
-      toast.error("❌ Kitchen is offline", {
-        description: "Cannot place order right now. Please try again later.",
-        duration: 5000,
-      });
-      return;
-    }
+    // // ✅ CHECK: Is KDS online?
+    // if (!kdsOnline) {
+    //   toast.error("❌ Kitchen is offline", {
+    //     description: "Cannot place order right now. Please try again later.",
+    //     duration: 5000,
+    //   });
+    //   return;
+    // }
 
     const orderToken = `23C11036-${Math.floor(Math.random() * 100)}`;
 
     // ✅ Create ORDER (reusable)
     const order = {
-      _id: orderToken,
+      _id: orderToken, // Use token as temporary ID, will be updated with MongoDB ID
       token: orderToken,
       items: cart.map((item) => ({
         _id: item._id,
@@ -56,7 +56,9 @@ export default function Cashout({ ws, kdsOnline }: CartProps) {
         quantity: Number(item.quantity),
       })),
       totalAmount: cartTotal,
-      status: "PENDING" as const,
+      status: kdsOnline
+        ? ("PENDING" as const)
+        : ("NOT RECEIVED BY KDS" as const),
       source: "STUDENT" as const,
       createdAt: new Date().toISOString(),
     };
@@ -75,8 +77,13 @@ export default function Cashout({ ws, kdsOnline }: CartProps) {
 
     try {
       ws.send(JSON.stringify(orderMessage));
+
+      const successMessage = kdsOnline
+        ? `Order #${orderToken} sent to kitchen`
+        : `Order #${orderToken} queued - will sync when kitchen is online`;
+
       toast.success("✅ Order placed successfully!", {
-        description: `Order #${orderToken} sent to kitchen`,
+        description: successMessage,
         duration: 4000,
       });
       console.log("📤 Order sent:", orderToken);
@@ -131,7 +138,6 @@ export default function Cashout({ ws, kdsOnline }: CartProps) {
                   : "bg-gray-500 cursor-not-allowed opacity-60"
               }`}
               onClick={placeOrder}
-              disabled={!kdsOnline} // ✅ Disable button when KDS offline
             >
               {kdsOnline ? (
                 <>PAY ₹{cartTotal.toFixed(2)}</>

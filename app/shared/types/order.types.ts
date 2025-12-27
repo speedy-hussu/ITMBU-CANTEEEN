@@ -1,6 +1,10 @@
 import type { BaseItem, CartItem, KdsItem } from "./item.types";
 // Common enums
-export type OrderStatus = "PENDING" | "COMPLETED" | "CANCELLED";
+export type OrderStatus =
+  | "PENDING"
+  | "COMPLETED"
+  | "CANCELLED"
+  | "NOT RECEIVED BY KDS";
 export type OrderSource = "POS" | "STUDENT" | "ADMIN";
 
 // Item inside an order must at minimum have quantity

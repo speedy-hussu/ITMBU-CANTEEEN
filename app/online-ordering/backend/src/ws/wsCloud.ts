@@ -6,17 +6,20 @@ import {
   parseWebSocketMessage,
   type OrderAckPayload,
 } from "../../../../shared/types/websocket.types";
+import mongoose from "mongoose";
 
 interface PendingOrder {
   cloudOrderId: string;
   order: any;
   timestamp: number;
   attempts: number;
+  status: "NOT RECEIVED BY KDS";
 }
 
 export class CloudWebSocketServer {
   private localConnection: WebSocket | null = null;
   private studentConnections: Set<WebSocket> = new Set();
+  private activeStudents: Map<string, WebSocket> = new Map(); // Map enrollmentNo to WebSocket for targeted messaging
   private pendingOrders: Map<string, PendingOrder> = new Map();
   private isLocalConnected = false;
   private heartbeatInterval: NodeJS.Timeout | null = null;
@@ -42,23 +45,15 @@ export class CloudWebSocketServer {
     // REST API for student orders (fallback)
     this.app.post("/api/orders", async (request, reply) => {
       try {
-        // ✅ CHECK: Is KDS (local server) connected?
-        if (!this.isLocalConnected) {
-          return reply.code(503).send({
-            success: false,
-            error: "KDS is offline",
-            message:
-              "Kitchen Display System is not connected. Please try again later.",
-          });
-        }
-
         const order = request.body;
         const result = await this.receiveStudentOrder(order);
 
         return reply.code(201).send({
           success: true,
           ...result,
-          message: "Order sent to KDS",
+          message: result.queued
+            ? "Order cached - KDS is offline"
+            : "Order sent to KDS",
         });
       } catch (error) {
         console.error("Error creating order:", error);
@@ -119,6 +114,9 @@ export class CloudWebSocketServer {
     );
 
     this.startHeartbeat();
+
+    // Sync pending orders when KDS comes back online
+    this.syncPendingOrders();
 
     socket.on("message", (data: Buffer) => {
       try {
@@ -194,18 +192,63 @@ export class CloudWebSocketServer {
     const { cloudOrderId, success, localOrderId, error } = payload;
 
     if (success && cloudOrderId) {
-      this.pendingOrders.delete(cloudOrderId);
-      console.log(
-        `✅ Order acknowledged: ${cloudOrderId} (Local ID: ${localOrderId})`
-      );
+      // Check if this was a pending order being synced
+      const pendingOrder = this.pendingOrders.get(cloudOrderId);
+      if (pendingOrder && pendingOrder.status === "NOT RECEIVED BY KDS") {
+        console.log(
+          `✅ Order synced successfully: ${cloudOrderId} (Local ID: ${pendingOrder.order.token}) - Status changed from "NOT RECEIVED BY KDS" to "PENDING"`
+        );
+      } else {
+        console.log(
+          `✅ Order acknowledged: ${cloudOrderId} (Local ID: ${
+            pendingOrder?.order?.token || localOrderId
+          })`
+        );
+      }
 
-      // ✅ Use typed message builder
-      this.broadcastToStudents(
-        WebSocketMessageBuilder.orderAck(cloudOrderId, true, localOrderId)
-      );
+      this.pendingOrders.delete(cloudOrderId);
+
+      // ✅ Use enrollment number for targeted messaging
+      const enrollmentNo = pendingOrder?.order?.enrollmentNo;
+      if (enrollmentNo) {
+        const studentSocket = this.activeStudents.get(enrollmentNo);
+        if (studentSocket && studentSocket.readyState === WebSocket.OPEN) {
+          studentSocket.send(
+            JSON.stringify(
+              WebSocketMessageBuilder.orderAck(
+                cloudOrderId,
+                true,
+                pendingOrder?.order?.token || localOrderId
+              )
+            )
+          );
+          console.log(
+            `📤 Sent targeted order acknowledgment to enrollment: ${enrollmentNo}`
+          );
+        } else {
+          console.warn(
+            `⚠️  Student ${enrollmentNo} not connected, falling back to broadcast`
+          );
+          this.broadcastToStudents(
+            WebSocketMessageBuilder.orderAck(
+              cloudOrderId,
+              true,
+              pendingOrder?.order?.token || localOrderId
+            )
+          );
+        }
+      } else {
+        // No enrollment number, broadcast to all
+        this.broadcastToStudents(
+          WebSocketMessageBuilder.orderAck(
+            cloudOrderId,
+            true,
+            pendingOrder?.order?.token || localOrderId
+          )
+        );
+      }
     } else {
       console.error(`❌ Order acknowledgment failed: ${cloudOrderId}`, error);
-
       // ✅ Use typed message builder
       this.broadcastToStudents(
         WebSocketMessageBuilder.orderAck(
@@ -215,51 +258,160 @@ export class CloudWebSocketServer {
           error || "Unknown error"
         )
       );
-
-      const pendingOrder = this.pendingOrders.get(cloudOrderId || "");
-      if (pendingOrder) {
-        pendingOrder.attempts++;
-        if (pendingOrder.attempts >= 3) {
-          this.pendingOrders.delete(cloudOrderId || "");
-          console.log(`❌ Order ${cloudOrderId} failed after 3 attempts`);
-        }
-      }
     }
   }
 
   private handleOrderCompleted(payload: any) {
     console.log("✅ Order completed from local:", payload);
-    this.broadcastToStudents({
-      type: "order_completed",
-      payload: {
-        cloudOrderId: payload.cloudOrderId,
-        localOrderId: payload.localOrderId,
-        token: payload.token,
-      },
-      timestamp: Date.now(),
-    });
+
+    // Use enrollment number for targeted messaging
+    const enrollmentNo = payload.enrollmentNo;
+    if (enrollmentNo) {
+      const studentSocket = this.activeStudents.get(enrollmentNo);
+      if (studentSocket && studentSocket.readyState === WebSocket.OPEN) {
+        studentSocket.send(
+          JSON.stringify({
+            type: "order_completed",
+            payload: {
+              cloudOrderId: payload.cloudOrderId,
+              localOrderId: payload.localOrderId,
+              token: payload.token,
+            },
+            timestamp: Date.now(),
+          })
+        );
+        console.log(
+          `📤 Sent targeted order completion to enrollment: ${enrollmentNo}`
+        );
+      } else {
+        console.warn(
+          `⚠️  Student ${enrollmentNo} not connected, falling back to broadcast`
+        );
+        this.broadcastToStudents({
+          type: "order_completed",
+          payload: {
+            cloudOrderId: payload.cloudOrderId,
+            localOrderId: payload.localOrderId,
+            token: payload.token,
+          },
+          timestamp: Date.now(),
+        });
+      }
+    } else {
+      // No enrollment number, broadcast to all
+      this.broadcastToStudents({
+        type: "order_completed",
+        payload: {
+          cloudOrderId: payload.cloudOrderId,
+          localOrderId: payload.localOrderId,
+          token: payload.token,
+        },
+        timestamp: Date.now(),
+      });
+    }
   }
 
   private handleOrderCancelled(payload: any) {
     console.log("❌ Order cancelled from local:", payload);
-    this.broadcastToStudents({
-      type: "order_cancelled",
-      payload: {
-        cloudOrderId: payload.cloudOrderId,
-        localOrderId: payload.localOrderId,
-        token: payload.token,
-      },
-      timestamp: Date.now(),
-    });
+
+    // Use enrollment number for targeted messaging
+    const enrollmentNo = payload.enrollmentNo;
+    if (enrollmentNo) {
+      const studentSocket = this.activeStudents.get(enrollmentNo);
+      if (studentSocket && studentSocket.readyState === WebSocket.OPEN) {
+        studentSocket.send(
+          JSON.stringify({
+            type: "order_cancelled",
+            payload: {
+              cloudOrderId: payload.cloudOrderId,
+              localOrderId: payload.localOrderId,
+              token: payload.token,
+            },
+            timestamp: Date.now(),
+          })
+        );
+        console.log(
+          `📤 Sent targeted order cancellation to enrollment: ${enrollmentNo}`
+        );
+      } else {
+        console.warn(
+          `⚠️  Student ${enrollmentNo} not connected, falling back to broadcast`
+        );
+        this.broadcastToStudents({
+          type: "order_cancelled",
+          payload: {
+            cloudOrderId: payload.cloudOrderId,
+            localOrderId: payload.localOrderId,
+            token: payload.token,
+          },
+          timestamp: Date.now(),
+        });
+      }
+    } else {
+      // No enrollment number, broadcast to all
+      this.broadcastToStudents({
+        type: "order_cancelled",
+        payload: {
+          cloudOrderId: payload.cloudOrderId,
+          localOrderId: payload.localOrderId,
+          token: payload.token,
+        },
+        timestamp: Date.now(),
+      });
+    }
   }
 
   private handleStatusUpdate(payload: any) {
     console.log("📦 Order status update from local:", payload);
-    this.broadcastToStudents({
-      type: "update_status",
-      payload,
-      timestamp: Date.now(),
-    });
+
+    // Try to get enrollment number from payload first, then from pending orders
+    let enrollmentNo = payload.enrollmentNo;
+
+    if (!enrollmentNo && payload.cloudOrderId) {
+      // If no enrollment in payload, try to find it from pending orders
+      const pendingOrder = this.pendingOrders.get(payload.cloudOrderId);
+      if (pendingOrder?.order?.enrollmentNo) {
+        enrollmentNo = pendingOrder.order.enrollmentNo;
+        console.log(
+          `🔍 Found enrollment number from pending order: ${enrollmentNo}`
+        );
+      }
+    }
+
+    if (enrollmentNo) {
+      const studentSocket = this.activeStudents.get(enrollmentNo);
+      if (studentSocket && studentSocket.readyState === WebSocket.OPEN) {
+        studentSocket.send(
+          JSON.stringify({
+            type: "update_status",
+            payload,
+            timestamp: Date.now(),
+          })
+        );
+        console.log(
+          `📤 Sent targeted status update to enrollment: ${enrollmentNo}`
+        );
+      } else {
+        console.warn(
+          `⚠️  Student ${enrollmentNo} not connected, falling back to broadcast`
+        );
+        this.broadcastToStudents({
+          type: "update_status",
+          payload,
+          timestamp: Date.now(),
+        });
+      }
+    } else {
+      // No enrollment number found, broadcast to all
+      console.warn(
+        `⚠️  No enrollment number found for status update, broadcasting to all`
+      );
+      this.broadcastToStudents({
+        type: "update_status",
+        payload,
+        timestamp: Date.now(),
+      });
+    }
   }
 
   // ==================== STUDENT BACKEND CONNECTION ====================
@@ -283,21 +435,14 @@ export class CloudWebSocketServer {
         if (message.type === "student_order") {
           console.log("📥 Student order received:", message);
 
-          // ✅ CHECK: Is KDS connected?
-          if (!this.isLocalConnected) {
-            console.log("❌ Order rejected - KDS is offline");
-            socket.send(
-              JSON.stringify(
-                WebSocketMessageBuilder.orderRejected(
-                  "KDS is offline",
-                  "Kitchen Display System is not connected. Please try again later."
-                )
-              )
-            );
-            return;
-          }
+          // Extract enrollment number from order for targeted messaging
+          const enrollmentNo = message.payload.order.enrollmentNo;
 
-          // Process the order
+          // Store user connection mapping using enrollment number as key
+          this.activeStudents.set(enrollmentNo, socket);
+          console.log(`📡 Connection mapped to Enrollment: ${enrollmentNo}`);
+
+          // Process the order regardless of KDS status
           const result = await this.receiveStudentOrder(message.payload.order);
 
           // ✅ Confirm reception using typed builder
@@ -329,11 +474,30 @@ export class CloudWebSocketServer {
     socket.on("close", () => {
       console.log("👋 Student backend disconnected");
       this.studentConnections.delete(socket);
+
+      // Remove from activeStudents map - find and remove by comparing sockets
+      for (const [enrollmentNo, ws] of this.activeStudents.entries()) {
+        if (ws === socket) {
+          this.activeStudents.delete(enrollmentNo);
+          console.log(
+            `🗑️ Removed enrollment ${enrollmentNo} from active students map`
+          );
+          break;
+        }
+      }
     });
 
     socket.on("error", (error: Error) => {
       console.error("❌ Student connection error:", error.message);
       this.studentConnections.delete(socket);
+
+      // Remove from activeStudents map on error
+      for (const [enrollmentNo, ws] of this.activeStudents.entries()) {
+        if (ws === socket) {
+          this.activeStudents.delete(enrollmentNo);
+          break;
+        }
+      }
     });
   }
 
@@ -341,12 +505,13 @@ export class CloudWebSocketServer {
     queued: boolean;
     cloudOrderId: string;
   }> {
-    const cloudOrderId = `CLOUD-${Date.now()}-${Math.random()
-      .toString(36)
-      .substr(2, 9)}`;
+    // Generate MongoDB ObjectId in cloud backend only
+    const mongoId = new mongoose.Types.ObjectId();
+    const cloudOrderId = mongoId.toString();
 
     console.log("📦 Processing order:", {
       cloudOrderId,
+      mongoId,
       orderData: order,
     });
 
@@ -359,8 +524,19 @@ export class CloudWebSocketServer {
       console.log(`📤 Student order sent to KDS: ${cloudOrderId}`);
       return { queued: false, cloudOrderId };
     } else {
-      console.log(`❌ Order rejected - KDS offline: ${cloudOrderId}`);
-      throw new Error("KDS is offline");
+      // Store order in cache when KDS is offline
+      const pendingOrder: PendingOrder = {
+        cloudOrderId,
+        order,
+        timestamp: Date.now(),
+        attempts: 0,
+        status: "NOT RECEIVED BY KDS",
+      };
+
+      this.pendingOrders.set(cloudOrderId, pendingOrder);
+      console.log(`💾 Order cached - KDS offline: ${cloudOrderId}`);
+
+      return { queued: true, cloudOrderId };
     }
   }
 
@@ -408,6 +584,33 @@ export class CloudWebSocketServer {
   }
 
   // ==================== HELPER METHODS ====================
+  private syncPendingOrders() {
+    if (this.pendingOrders.size === 0) {
+      console.log("📋 No pending orders to sync");
+      return;
+    }
+
+    console.log(
+      `🔄 Syncing ${this.pendingOrders.size} pending orders to KDS...`
+    );
+
+    const ordersToSync = Array.from(this.pendingOrders.entries());
+
+    ordersToSync.forEach(([cloudOrderId, pendingOrder]) => {
+      console.log(`📤 Syncing order: ${cloudOrderId}`);
+
+      // Send the cached order to KDS
+      this.sendToLocal(
+        WebSocketMessageBuilder.studentOrder(cloudOrderId, pendingOrder.order)
+      );
+
+      // Update the pending order to track sync attempt
+      pendingOrder.attempts++;
+    });
+
+    console.log(`📤 Sent ${ordersToSync.length} orders to KDS for sync`);
+  }
+
   private sendToLocal(message: any) {
     if (this.localConnection?.readyState === WebSocket.OPEN) {
       try {
@@ -436,6 +639,7 @@ export class CloudWebSocketServer {
     });
 
     this.studentConnections.clear();
+    this.activeStudents.clear(); // Clear active students map
     this.pendingOrders.clear();
 
     console.log("✅ Cloud WebSocket Server shut down");

@@ -66,7 +66,6 @@ function App() {
         setConnectionError(true);
       }
     };
-
     setWs(socket);
 
     return () => {
@@ -141,19 +140,29 @@ function App() {
           break;
         }
 
-        // ✅ Order acknowledged by kitchen
+        // Order acknowledged by kitchen
         case "order_ack": {
           const payload = data.payload as OrderAckPayload;
 
-          if (payload.success && payload.localOrderId) {
+          if (payload.success && payload.localOrderId && payload.cloudOrderId) {
+            // Update order status to PENDING using original token as localOrderId
+            const { updateOrderWithMongoId } = useOrderStore.getState();
+
+            // Find order by original token and update both _id and status
+            updateOrderWithMongoId(
+              payload.localOrderId,
+              payload.cloudOrderId,
+              "PENDING"
+            );
+
             toast.success(
-              `✅ Order confirmed! Kitchen ID: ${payload.localOrderId}`
+              ` Order confirmed! Kitchen ID: ${payload.cloudOrderId}`
             );
             console.log(
-              `Order ${payload.cloudOrderId} → Kitchen ${payload.localOrderId}`
+              `Order ${payload.cloudOrderId} → Kitchen ${payload.cloudOrderId} (Status: PENDING)`
             );
           } else {
-            toast.error(`❌ Order failed: ${payload.error || "Unknown error"}`);
+            toast.error(` Order failed: ${payload.error || "Unknown error"}`);
           }
           break;
         }

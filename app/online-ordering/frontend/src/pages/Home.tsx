@@ -2,12 +2,54 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
-import { fetchItems } from "@/api/api";
 import ItemCard from "@/components/STUDENT/item-card";
 import type { MenuItem } from "@shared/types/item.types";
 
-// Sample data will be replaced by the API response
+// Hardcoded menu items
+const hardcodedItems: MenuItem[] = [
+  {
+    _id: "1",
+    name: "Vada Pav",
+    price: 30,
+    category: "Dish",
+    isAvailable: true,
+  },
+  {
+    _id: "2",
+    name: "Samosa",
+    price: 15,
+    category: "Dish",
+    isAvailable: true,
+  },
+  {
+    _id: "3",
+    name: "Tea",
+    price: 10,
+    category: "Product",
+    isAvailable: true,
+  },
+  {
+    _id: "4",
+    name: "Coffee",
+    price: 20,
+    category: "Product",
+    isAvailable: true,
+  },
+  {
+    _id: "5",
+    name: "Idli",
+    price: 25,
+    category: "Dish",
+    isAvailable: true,
+  },
+  {
+    _id: "6",
+    name: "Dosa",
+    price: 35,
+    category: "Dish",
+    isAvailable: true,
+  },
+];
 
 const categories = ["All", "Dish", "Product"];
 
@@ -15,16 +57,8 @@ export default function Menu() {
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
 
-  const {
-    data: menuItems = [],
-    isLoading,
-    error,
-  } = useQuery<MenuItem[]>({
-    queryKey: ["items"], // cache key
-    queryFn: fetchItems, // API function
-    staleTime: 5 * 60 * 1000, // 5 minutes (prevents re-fetch spam)
-    retry: 1, // retry failed requests once
-  });
+  // Use hardcoded items instead of API
+  const menuItems = hardcodedItems;
   const filteredItems = menuItems.filter((item: MenuItem) => {
     const matchesCategory =
       selectedCategory === "All" || item.category === selectedCategory;
@@ -44,8 +78,6 @@ export default function Menu() {
               Canteen
             </h1>
           </div>
-          {isLoading && <div>Loading...</div>}
-          {error && <div>Error: {error.message}</div>}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <Input

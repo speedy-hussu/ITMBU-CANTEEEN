@@ -9,7 +9,7 @@ export default function MyOrders() {
       case "COMPLETED":
         return "bg-green-500";
       case "PENDING":
-        return "bg-gray-400";
+        return "bg-yellow-400";
       case "CANCELLED":
         return "bg-red-500";
       default:
@@ -32,7 +32,7 @@ export default function MyOrders() {
                 <div className="flex justify-between items-start mb-3">
                   <div>
                     <h3 className="font-semibold text-sm sm:text-base text-gray-900">
-                      Order {order._id}
+                      {order.token}
                     </h3>
                   </div>
                   <Badge
