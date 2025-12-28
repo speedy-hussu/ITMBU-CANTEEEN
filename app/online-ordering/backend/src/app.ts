@@ -2,10 +2,13 @@ import fastify, { FastifyError, FastifyInstance } from "fastify";
 import cors from "@fastify/cors";
 import formbody from "@fastify/formbody";
 import cookie from "@fastify/cookie";
+import fastifyJwt from "@fastify/jwt";
 import websocket from "@fastify/websocket";
+import { authDecorator } from "./decorator/auth.decorator";
 
 // Routes
 import userItemRoute from "./modules/items/routes/user.route";
+import authRoutes from "./modules/auth/route";
 
 export async function buildApp(): Promise<FastifyInstance> {
   const app = fastify({
@@ -43,8 +46,17 @@ export async function buildApp(): Promise<FastifyInstance> {
   // WebSocket support - MUST BE REGISTERED BEFORE WEBSOCKET ROUTES
   await app.register(websocket);
 
+  app.register(fastifyJwt, {
+    secret: process.env.JWT_SECRET || "supersecret",
+    cookie: {
+      cookieName: "token",
+      signed: false, // Set to true if you want to sign the cookie itself
+    },
+  });
   console.log("✅ Fastify plugins registered");
+  await app.register(authDecorator);
 
+  app.register(authRoutes, { prefix: "api/auth" });
   // ========== ROUTES ==========
 
   // Health check
