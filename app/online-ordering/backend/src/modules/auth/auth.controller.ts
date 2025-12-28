@@ -3,13 +3,10 @@ import { FastifyRequest, FastifyReply } from "fastify";
 import { verifyUser } from "./auth.service";
 
 // src/modules/auth/controller/auth.controller.ts
-export const loginHandler = async (
-  request: FastifyRequest,
-  reply: FastifyReply
-) => {
+export const loginHandler = async (request: FastifyRequest, reply: FastifyReply) => {
   const { enrollmentId, password } = request.body as any;
   const user = await verifyUser(enrollmentId, password);
-  console.log(user, "from controller");
+
   if (!user) {
     return reply.code(401).send({ message: "Invalid credentials" });
   }
@@ -18,18 +15,24 @@ export const loginHandler = async (
     enrollmentId: user.enrollmentId,
   });
 
-  // Set the cookie
   reply.setCookie("token", token, {
     path: "/",
-    secure: process.env.NODE_ENV === "production", // true in production (HTTPS)
-    httpOnly: true, // Prevents JavaScript from reading the cookie
-    sameSite: "lax", // Protections against CSRF
-    maxAge: 60 * 60 * 24 * 7, // 7 days in seconds
+    secure: process.env.NODE_ENV === "production",
+    httpOnly: true,
+    sameSite: "lax",
+    maxAge: 60 * 60 * 24 * 7,
   });
 
-  return { message: "Login successful" };
+  // ✅ RETURN THE USER DATA
+  // This allows the frontend to do: login(response.user)
+  return { 
+    message: "Login successful", 
+    user: {
+      enrollmentId: user.enrollmentId,
+      // Add other fields here like name, role, etc., if they exist in your DB
+    } 
+  };
 };
-
 export const logoutHandler = async (
   request: FastifyRequest,
   reply: FastifyReply

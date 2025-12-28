@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import CartItem from "@/components/STUDENT/cart-item";
 import { useOrderStore } from "@/store/orderStore";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useAuthStore } from "@/store/authStore";
 
 interface CartProps {
   ws: WebSocket | null;
@@ -16,6 +17,13 @@ export default function Cashout({ ws, kdsOnline }: CartProps) {
   const { addOrder } = useOrderStore();
   const cartTotal = getCartTotal();
 
+  const { user } = useAuthStore();
+  if (!user) {
+    toast.error("User not found", {
+      description: "Please login to place an order",
+    });
+    return;
+  }
   const placeOrder = () => {
     // ✅ Check if WebSocket is connected
     if (!ws || ws.readyState !== WebSocket.OPEN) {
@@ -41,8 +49,9 @@ export default function Cashout({ ws, kdsOnline }: CartProps) {
     //   });
     //   return;
     // }
-
-    const orderToken = `23C11036-${Math.floor(Math.random() * 100)}`;
+    const orderToken = `${user.enrollmentId}-${Math.floor(
+      Math.random() * 100
+    )}`;
 
     // ✅ Create ORDER (reusable)
     const order = {
@@ -132,17 +141,13 @@ export default function Cashout({ ws, kdsOnline }: CartProps) {
         {cart.length > 0 && (
           <div>
             <Button
-              className={`w-full h-12 sm:h-14 text-base sm:text-lg font-semibold text-white transition-all ${
-                kdsOnline
-                  ? "bg-orange-500 hover:bg-orange-600"
-                  : "bg-gray-500 cursor-not-allowed opacity-60"
-              }`}
+              className={`w-full h-12 sm:h-14 text-base sm:text-lg font-semibold text-white transition-all ${"bg-orange-500 hover:bg-orange-600"}`}
               onClick={placeOrder}
             >
               {kdsOnline ? (
                 <>PAY ₹{cartTotal.toFixed(2)}</>
               ) : (
-                "⚠️ Kitchen is currently offline"
+                "Kitchen is Offline Order will be queued"
               )}
             </Button>
           </div>

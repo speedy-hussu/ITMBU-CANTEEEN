@@ -1,11 +1,15 @@
 import { useState } from "react";
 import { Calculator, Monitor, Mail, Lock } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { useNavigate } from "react-router-dom";
+
 import { useAuthStore } from "@/store/authStore";
+import { loginUser } from "@/api/api";
 
 export default function Login() {
   const [activeTab, setActiveTab] = useState<"STUDENT" | "FACULTY">("STUDENT");
@@ -13,19 +17,9 @@ export default function Login() {
   const [error, setError] = useState<string | null>(null);
 
   const navigate = useNavigate();
-  const login = useAuthStore((state) => state.login); // Zustand action
+  const login = useAuthStore((state) => state.login);
 
-  const [formData, setFormData] = useState({
-    enrollId: "",
-    name: "",
-    password: "",
-  });
-
-  const handleTabChange = (tab: "STUDENT" | "FACULTY") => {
-    setActiveTab(tab);
-    setFormData({ enrollId: "", name: "", password: "" });
-    setError(null);
-  };
+  const [formData, setFormData] = useState({ enrollId: "", password: "" });
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,175 +27,113 @@ export default function Login() {
     setIsLoading(true);
 
     try {
-      // 1. Call your Fastify Backend
-      const response = await fetch("http://localhost:5000/api/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          enrollId: formData.enrollId,
-          password: formData.password,
-          role: activeTab,
-        }),
-      });
+      const response = await loginUser(formData.enrollId, formData.password);
 
-      const data = await response.json();
+      // ✅ 1. Update Zustand Store (This triggers WebSocket in App.tsx)
+      login(response.user);
 
-      if (!response.ok) {
-        throw new Error(data.error || "Invalid credentials. Please try again.");
-      }
+      toast.success("Login Successful!");
 
-      // 2. Update Global Auth State
-      login({
-        username: data.user.name,
-        enrollId: data.user.enrollId,
-        role: data.user.role as "STUDENT" | "FACULTY",
-        token: data.token,
-      });
-
-      console.log("✅ Auth Success:", data.user.name);
-
-      // 3. Navigate to home (WebSocket will connect automatically there)
-      navigate("/home");
+      // ✅ 2. Navigate Home
+      navigate("/", { replace: true });
     } catch (err: any) {
-      setError(err.message);
+      setError(err.message || "Invalid credentials. Please try again.");
+      toast.error("Login Failed");
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-primary flex items-center justify-center px-3 sm:px-4 py-4 sm:py-6">
-      <div className="w-full sm:max-w-sm md:max-w-md lg:max-w-lg">
-        <div className="bg-white/95 backdrop-blur-sm rounded-3xl shadow-2xl overflow-hidden border-0">
-          {/* Tabs Section */}
-          <div className="relative flex bg-gray-100 p-1 m-3 sm:m-4 rounded-2xl">
+    <div className="min-h-screen bg-gradient-primary flex items-center justify-center px-4">
+      <div className="w-full max-w-md">
+        <div className="bg-white/95 backdrop-blur-sm rounded-3xl shadow-2xl overflow-hidden p-6 sm:p-8">
+          {/* Tabs */}
+          <div className="flex bg-gray-100 p-1 rounded-2xl mb-8 relative">
             <div
-              className={`absolute top-1 bottom-1 w-[calc(50%-0.5rem)] tab-gradient-active rounded-xl shadow-lg transition-all duration-300 ease-out ${
-                activeTab === "STUDENT" ? "left-1" : "left-[calc(50%+0.5rem)]"
+              className={`absolute h-[calc(100%-8px)] w-[calc(50%-4px)] tab-gradient-active rounded-xl transition-all duration-300 ease-in-out ${
+                activeTab === "STUDENT" ? "left-1" : "left-[calc(50%+4px)]"
               }`}
             />
-
             <Button
-              type="button"
               variant="ghost"
-              onClick={() => handleTabChange("STUDENT")}
-              className={`relative flex-1 py-2 sm:py-3 font-semibold rounded-xl transition-all duration-300 z-10 text-xs sm:text-sm md:text-base h-auto ${
-                activeTab === "STUDENT" ? "text-white" : "text-gray-600"
+              className={`flex-1 z-10 font-bold ${
+                activeTab === "STUDENT" ? "text-white" : "text-gray-500"
               }`}
+              onClick={() => setActiveTab("STUDENT")}
             >
-              <span className="flex items-center justify-center gap-2">
-                <Calculator className="w-4 h-4 sm:w-5 sm:h-5" />
-                <span>STUDENT</span>
-              </span>
+              <Calculator className="mr-2 h-4 w-4" /> STUDENT
             </Button>
-
             <Button
-              type="button"
               variant="ghost"
-              onClick={() => handleTabChange("FACULTY")}
-              className={`relative flex-1 py-2 sm:py-3 font-semibold rounded-xl transition-all duration-300 z-10 text-xs sm:text-sm md:text-base h-auto ${
-                activeTab === "FACULTY" ? "text-white" : "text-gray-600"
+              className={`flex-1 z-10 font-bold ${
+                activeTab === "FACULTY" ? "text-white" : "text-gray-500"
               }`}
+              onClick={() => setActiveTab("FACULTY")}
             >
-              <span className="flex items-center justify-center gap-2">
-                <Monitor className="w-4 h-4 sm:w-5 sm:h-5" />
-                <span>FACULTY</span>
-              </span>
+              <Monitor className="mr-2 h-4 w-4" /> FACULTY
             </Button>
           </div>
 
-          {/* Form Section */}
-          <div className="px-4 pb-6 sm:px-8 lg:px-10 lg:pb-10">
-            <div className="mb-4 sm:mb-6 text-center">
-              <h2 className="text-lg md:text-xl font-bold text-gray-800 uppercase">
-                {activeTab} CANTEEN LOGIN
-              </h2>
+          <h2 className="text-2xl font-bold text-center text-gray-800 mb-6 uppercase">
+            {activeTab} Login
+          </h2>
+
+          <form onSubmit={handleLogin} className="space-y-5">
+            <div className="space-y-2">
+              <Label htmlFor="enrollId">
+                {activeTab === "STUDENT" ? "Enrollment ID" : "Faculty Code"}
+              </Label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+                <Input
+                  id="enrollId"
+                  className="pl-10"
+                  placeholder="Enter ID"
+                  value={formData.enrollId}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      enrollId: e.target.value.toUpperCase(),
+                    })
+                  }
+                  required
+                />
+              </div>
             </div>
 
-            <form onSubmit={handleLogin} className="space-y-4 md:space-y-5">
-              {/* Enrollment ID / Faculty Code */}
-              <div className="space-y-1.5">
-                <Label
-                  htmlFor="enrollId"
-                  className="text-sm font-medium text-gray-700"
-                >
-                  {activeTab === "STUDENT" ? "Enrollment ID" : "Faculty Code"}{" "}
-                  <span className="text-red-500">*</span>
-                </Label>
-                <div className="relative">
-                  <Mail className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <Input
-                    id="enrollId"
-                    type="text"
-                    value={formData.enrollId}
-                    onChange={(e) =>
-                      setFormData({ ...formData, enrollId: e.target.value })
-                    }
-                    disabled={isLoading}
-                    required
-                    className="w-full pl-10 h-11 rounded-xl border-gray-300 focus-gradient transition-all"
-                    placeholder={`Enter ${
-                      activeTab === "STUDENT" ? "Enrollment ID" : "Code"
-                    }`}
-                  />
-                </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+                <Input
+                  id="password"
+                  type="password"
+                  className="pl-10"
+                  placeholder="••••••••"
+                  value={formData.password}
+                  onChange={(e) =>
+                    setFormData({ ...formData, password: e.target.value })
+                  }
+                  required
+                />
               </div>
+            </div>
 
-              {/* Password */}
-              <div className="space-y-1.5">
-                <Label
-                  htmlFor="password"
-                  title="Password is required"
-                  className="text-sm font-medium text-gray-700"
-                >
-                  Password <span className="text-red-500">*</span>
-                </Label>
-                <div className="relative">
-                  <Lock className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <Input
-                    id="password"
-                    type="password"
-                    value={formData.password}
-                    onChange={(e) =>
-                      setFormData({ ...formData, password: e.target.value })
-                    }
-                    disabled={isLoading}
-                    required
-                    className="w-full pl-10 h-11 rounded-xl border-gray-300 focus-gradient transition-all"
-                    placeholder="••••••••"
-                  />
-                </div>
-              </div>
+            {error && (
+              <Alert variant="destructive">
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
 
-              {/* Error Alert */}
-              {error && (
-                <Alert
-                  variant="destructive"
-                  className="py-2 rounded-lg border-red-200 bg-red-50"
-                >
-                  <AlertDescription className="text-xs sm:text-sm text-red-700">
-                    {error}
-                  </AlertDescription>
-                </Alert>
-              )}
-
-              {/* Submit Button */}
-              <Button
-                type="submit"
-                disabled={isLoading}
-                className="w-full py-3 h-12 rounded-xl font-semibold text-white btn-gradient-primary shadow-lg hover:shadow-xl transition-all active:scale-[0.98] disabled:opacity-70"
-              >
-                {isLoading ? (
-                  <span className="flex items-center gap-2">
-                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Signing in...
-                  </span>
-                ) : (
-                  "Sign In"
-                )}
-              </Button>
-            </form>
-          </div>
+            <Button
+              type="submit"
+              disabled={isLoading}
+              className="w-full h-12 btn-gradient-primary text-white font-bold rounded-xl"
+            >
+              {isLoading ? "Signing in..." : "Sign In"}
+            </Button>
+          </form>
         </div>
       </div>
     </div>

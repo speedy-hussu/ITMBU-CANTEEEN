@@ -22,7 +22,7 @@ const api = axios.create({
   withCredentials: true, // Crucial for cookies to work
 });
 
-export const login = async (
+export const loginUser = async (
   enrollmentId: string,
   password: string
 ): Promise<any> => {
@@ -35,7 +35,7 @@ export const getMe = async (): Promise<any> => {
   return response.data;
 };
 
-export const logout = async (): Promise<any> => {
+export const logoutUser = async (): Promise<any> => {
   const response = await api.post("/auth/logout");
   return response.data;
 };

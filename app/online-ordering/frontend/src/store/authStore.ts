@@ -4,7 +4,7 @@ import { persist, createJSONStorage } from "zustand/middleware";
 
 interface User {
   username: string;
-  enrollId: string;
+  enrollmentId: string;
   role: "STUDENT" | "FACULTY";
   token: string;
 }

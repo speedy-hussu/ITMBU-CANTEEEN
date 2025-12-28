@@ -25,12 +25,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { logoutUser } from "@/api/api";
+import { useAuthStore } from "@/store/authStore";
+import { useNavigate } from "react-router-dom";
 
 export default function UserProfile() {
   const [isEditing, setIsEditing] = useState(false);
   const [notifications, setNotifications] = useState(true);
   const [emailNotifications, setEmailNotifications] = useState(false);
 
+  const { logout } = useAuthStore();
+  const navigate = useNavigate();
   const [userData, setUserData] = useState({
     name: "John Doe",
     email: "john.doe@itmbu.ac.in",
@@ -351,6 +356,13 @@ export default function UserProfile() {
           <Button
             variant="outline"
             className="w-full h-12 justify-start gap-3 text-red-500 border-red-300 hover:bg-red-50"
+            onClick={() => {
+              if (confirm("do want to logout ?")) {
+                logoutUser();
+                logout();
+                navigate("/login");
+              }
+            }}
           >
             <LogOut className="w-5 h-5" />
             <span>Logout</span>

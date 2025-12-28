@@ -29,14 +29,14 @@ const cloudDB: Connection = mongoose.createConnection(uri, options);
 // });
 
 // Close the connection when the Node process ends
-process.on("SIGINT", async () => {
-  try {
-    await cloudDB.close();
-    console.log("ℹ️  Cloud MongoDB connection closed through app termination");
-    process.exit(0);
-  } catch (err) {
-    console.error("Error closing Cloud MongoDB connection:", err);
-    process.exit(1);
-  }
-});
+// process.on("SIGINT", async () => {
+//   try {
+//     await cloudDB.close();
+//     console.log("ℹ️  Cloud MongoDB connection closed through app termination");
+//     process.exit(0);
+//   } catch (err) {
+//     console.error("Error closing Cloud MongoDB connection:", err);
+//     process.exit(1);
+//   }
+// });
 export default cloudDB;

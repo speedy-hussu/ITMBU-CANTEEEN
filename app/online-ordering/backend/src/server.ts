@@ -1,6 +1,6 @@
 import "dotenv/config";
 import { buildApp } from "./app";
-import cloudDB from "./database/connections/cloudDB.connection";
+// import cloudDB from "./database/connections/cloudDB.connection";
 const PORT = Number(process.env.PORT) || 4000;
 const HOST = process.env.HOST || "0.0.0.0";
 
