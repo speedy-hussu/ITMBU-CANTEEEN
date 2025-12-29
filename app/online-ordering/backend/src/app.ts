@@ -33,12 +33,10 @@ await app.register(cors, {
   origin: (origin, cb) => {
     const hostname = origin ? new URL(origin).hostname : "";
 
-    // Allow localhost for development
-    if (process.env.NODE_ENV !== "production") {
-      if (hostname === "localhost" || hostname === "127.0.0.1") {
-        cb(null, true);
-        return;
-      }
+    // Allow localhost for development (even if backend is in production mode)
+    if (hostname === "localhost" || hostname === "127.0.0.1") {
+      cb(null, true);
+      return;
     }
 
     // Allow production frontend on Vercel
