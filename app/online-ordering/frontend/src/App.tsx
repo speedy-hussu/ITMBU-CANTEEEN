@@ -29,6 +29,7 @@ import {
   type OrderCompletedPayload,
   type OrderCancelledPayload,
 } from "@shared/types/websocket.types";
+import { getMe, logoutUser } from "./api/api";
 
 const queryClient = new QueryClient();
 
@@ -43,6 +44,35 @@ function App() {
   const { updateOrderStatus, updateOrderWithMongoId } = useOrderStore();
   const isAuthenticated = !!user;
 
+  // 1. Authentication validation Refined
+  useEffect(() => {
+    const validateAuth = async () => {
+      // Only validate if we THINK we are authenticated
+      if (isAuthenticated) {
+        try {
+          const response = await getMe();
+          // If the server returns a user, ensure the store is synced
+          if (response.user) {
+            console.log("✅ Session verified");
+            // Optional: useAuthStore.getState().login(response.user);
+          }
+        } catch (error) {
+          console.error("❌ Session expired, cleaning up...");
+
+          // 1. Clear Zustand store first
+          useAuthStore.getState().logout();
+
+          // 2. Call backend logout to clear cookies
+          await logoutUser();
+
+          // 3. Instead of reload, let Navigate handles the redirect
+          toast.error("Session expired. Please login again.");
+        }
+      }
+    };
+
+    validateAuth();
+  }, [isAuthenticated]);
   // 1. WebSocket Lifecycle Management
   useEffect(() => {
     if (!isAuthenticated) {
@@ -58,7 +88,7 @@ function App() {
     setIsConnecting(true);
     // const socket = new WebSocket("ws://localhost:5000/ws/student");
     const socket = new WebSocket(
-      "wss://itmbu-canteeen.onrender.com/ws/student"
+      "wss://itmbu-canteeen.onrender.com/ws/student" // Production WebSocket
     );
 
     socket.onopen = () => {
