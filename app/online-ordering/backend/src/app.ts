@@ -29,32 +29,11 @@ export async function buildApp(): Promise<FastifyInstance> {
   // ========== PLUGINS ==========
 
   // CORS - Allow credentials for cookies
-await app.register(cors, {
-  origin: (origin, cb) => {
-    const hostname = origin ? new URL(origin).hostname : "";
+  await app.register(cors, {
+    origin: true,
+    credentials: true,
+  });
 
-    // Allow localhost for development (even if backend is in production mode)
-    if (hostname === "localhost" || hostname === "127.0.0.1") {
-      cb(null, true);
-      return;
-    }
-
-    // Allow production frontend on Vercel
-    if (
-      hostname === "itmbu-canteeen.vercel.app" ||
-      hostname.endsWith(".vercel.app")
-    ) {
-      cb(null, true);
-      return;
-    }
-
-    cb(new Error("Not allowed by CORS"), false);
-  },
-
-  credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization", "Cookie"],
-});
   // Cookie parser
   await app.register(cookie, {
     secret: process.env.COOKIE_SECRET || "your-cookie-secret-key",
