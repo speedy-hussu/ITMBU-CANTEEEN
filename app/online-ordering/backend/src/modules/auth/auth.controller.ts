@@ -26,6 +26,7 @@ export const loginHandler = async (
     maxAge: 60 * 60 * 24 * 7,
   });
 
+
   // ✅ RETURN THE USER DATA
   // This allows the frontend to do: login(response.user)
   return {

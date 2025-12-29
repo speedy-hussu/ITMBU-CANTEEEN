@@ -86,11 +86,11 @@ function App() {
     if (ws) return; // Prevent duplicate connections
 
     setIsConnecting(true);
-    const socket = new WebSocket("ws://localhost:5000/ws/student");
-    // const socket = new WebSocket(
-    //   "wss://itmbu-canteeen.onrender.com/ws/student" // Production WebSocket
-    // );
 
+    // const socket = new WebSocket("ws://localhost:5000/ws/student");
+    const socket = new WebSocket(
+      "wss://itmbu-canteeen.onrender.com/ws/student" // Production WebSocket
+    );
     socket.onopen = () => {
       console.log("✅ WebSocket connected");
       setIsConnecting(false);
