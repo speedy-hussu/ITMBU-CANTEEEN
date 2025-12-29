@@ -1,3 +1,4 @@
+// frontend/src/pages/Login.tsx
 import { useState } from "react";
 import { Calculator, Monitor, Mail, Lock } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -29,12 +30,10 @@ export default function Login() {
     try {
       const response = await loginUser(formData.enrollId, formData.password);
 
-      // ✅ 1. Update Zustand Store (This triggers WebSocket in App.tsx)
+      // Update Zustand Store
       login(response.user);
 
       toast.success("Login Successful!");
-
-      // ✅ 2. Navigate Home
       navigate("/", { replace: true });
     } catch (err: any) {
       setError(err.message || "Invalid credentials. Please try again.");
@@ -49,7 +48,7 @@ export default function Login() {
       <div className="w-full max-w-md">
         <div className="bg-white/95 backdrop-blur-sm rounded-3xl shadow-2xl overflow-hidden p-6 sm:p-8">
           {/* Tabs */}
-          <div className="flex bg-gray-100 p-1 rounded-2xl mb-8 relative">
+          <div className="flex bg-gray-100 p-1 rounded-2 bouxl mb-8 relative">
             <div
               className={`absolute h-[calc(100%-8px)] w-[calc(50%-4px)] tab-gradient-active rounded-xl transition-all duration-300 ease-in-out ${
                 activeTab === "STUDENT" ? "left-1" : "left-[calc(50%+4px)]"

@@ -19,6 +19,7 @@ import axios from "axios";
 
 const api = axios.create({
   baseURL: "http://localhost:5000/api",
+  // baseURL: "https://itmbu-canteeen.onrender.com/api",
   withCredentials: true, // Crucial for cookies to work
 });
 

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button } from "../ui/button";
 import { useCartStore } from "@/store/cartStore";
-import { Clock, Home, ShoppingCart, User } from "lucide-react";
+import { Clock, Home, ShoppingCart, User, Wifi, WifiOff } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Badge } from "../ui/badge";
 
@@ -77,8 +77,14 @@ export default function Nav({ kdsOnline }: { kdsOnline: boolean }) {
           <User className="w-5 h-5 sm:w-6 sm:h-6" />
           <span>Profile</span>
         </Button>
-        <div className="text-center text-xs text-gray-500 p-2">
-          KDS: {kdsOnline ? "Online" : "Offline"}
+        <div
+          className={`text-center text-xs ${
+            kdsOnline ? "text-green-500" : "text-red-500"
+          } p-2`}
+        >
+          <span className="flex items-center gap-1">
+            KDS: {kdsOnline ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
+          </span>
         </div>
       </div>
     </div>
