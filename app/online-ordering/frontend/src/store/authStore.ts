@@ -6,7 +6,7 @@ interface User {
   username: string;
   enrollmentId: string;
   role: "STUDENT" | "FACULTY";
-  token: string;
+  // token: string; // Note: Usually better to keep token in HTTP-only cookie, but safe to keep here for UI if needed
 }
 
 interface AuthState {
@@ -23,7 +23,6 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
 
       login: (user: User) => {
-        // Zustand persist automatically handles localStorage for 'auth-storage'
         set({ user, isAuthenticated: true });
       },
 
@@ -32,7 +31,7 @@ export const useAuthStore = create<AuthState>()(
       },
     }),
     {
-      name: "auth-storage",
+      name: "auth-storage", // This is the key in localStorage
       storage: createJSONStorage(() => localStorage),
     }
   )

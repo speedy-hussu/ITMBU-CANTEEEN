@@ -15,13 +15,15 @@ export const loginHandler = async (request: FastifyRequest, reply: FastifyReply)
     enrollmentId: user.enrollmentId,
   });
 
-  reply.setCookie("token", token, {
-    path: "/",
-    secure: process.env.NODE_ENV === "production",
-    httpOnly: true,
-    sameSite: "lax",
-    maxAge: 60 * 60 * 24 * 7,
-  });
+ reply.setCookie("token", token, {
+   path: "/",
+   secure: process.env.NODE_ENV === "production", // Only secure in production
+   httpOnly: true,
+   sameSite: process.env.NODE_ENV === "production" ? "none" : "lax", // Cross-origin only in production
+   maxAge: 60 * 60 * 24 * 7,
+   domain: process.env.NODE_ENV === "production" ? ".onrender.com" : undefined, // Only set domain in production
+ });
+
 
   // ✅ RETURN THE USER DATA
   // This allows the frontend to do: login(response.user)
