@@ -18,13 +18,13 @@ export const loginHandler = async (
     enrollmentId: user.enrollmentId,
   });
 
-  reply.setCookie("token", token, {
-    path: "/",
-    secure: process.env.NODE_ENV === "production", // Only secure in production
-    httpOnly: true,
-    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax", // Cross-origin only in production
-    maxAge: 60 * 60 * 24 * 7,
-  });
+reply.setCookie("token", token, {
+  path: "/",
+  secure: true, // Force true
+  httpOnly: true,
+  sameSite: "none", // Force none
+  maxAge: 60 * 60 * 24 * 7,
+});
 
 
   // ✅ RETURN THE USER DATA

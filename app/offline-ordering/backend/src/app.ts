@@ -32,7 +32,7 @@ export async function buildApp(): Promise<FastifyInstance> {
 
   // CORS - Allow credentials for cookies
   await app.register(cors, {
-    origin: process.env.CORS_ORIGIN || true,
+    origin: true,
     credentials: true,
   });
 
@@ -67,19 +67,12 @@ export async function buildApp(): Promise<FastifyInstance> {
   // await app.register(orderRoutes, { prefix: "/api/orders" });
 
   // ========== WebSocket Routes ==========
-  // Import based on mode (local vs cloud)
-  const IS_CLOUD = process.env.IS_CLOUD === "true";
 
-  if (IS_CLOUD) {
-    // Cloud server mode - handles online orders
-    const { registerCloudWebSocket } = await import("./ws/cloud/index");
-    await registerCloudWebSocket(app);
-  } else {
     // Local server mode - handles POS/KDS
     const { LocalWebSocketServer } = await import("./ws/local/index");
     const wsServer = new LocalWebSocketServer(app);
     await wsServer.initialize();
-  }
+  
 
   // ========== ERROR HANDLERS ==========
 

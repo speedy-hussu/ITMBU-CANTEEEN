@@ -16,6 +16,7 @@ export type WebSocketMessageType =
   | "student_order" // ✅ NEW: Order from student to cloud
   | "student_order_received" // ✅ NEW: Cloud confirms order reception
   | "order_rejected" // ✅ NEW: Order rejected (KDS offline)
+  | "sync_pending_orders" // ✅ NEW: Sync pending orders from cloud
   | "new_order"
   | "order_completed"
   | "order_cancelled"

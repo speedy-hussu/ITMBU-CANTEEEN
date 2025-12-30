@@ -15,14 +15,10 @@ async function start() {
     console.log(`
 ════════════════════════════════════════════════════════
    🚀 Server Started Successfully                       
-   📍 URL: http://localhost:${PORT}                     
+   📍 URL:  http://localhost:${PORT}                     
    🌐 Host: ${HOST}                                     
-   🔧 Mode: ${
-     process.env.IS_CLOUD === "true" ? "CLOUD" : "LOCAL"
-   }                                                    
-   📊 Environment: ${
-     process.env.NODE_ENV || "development"
-   }                                                                                  
+   🔧 Mode: LOCAL                                            
+   📊 Environment: development                                                                   
 ════════════════════════════════════════════════════════
     `);
 

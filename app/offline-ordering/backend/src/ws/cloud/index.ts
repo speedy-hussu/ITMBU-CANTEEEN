@@ -8,6 +8,7 @@ import type {
 import { OrderModel } from "../../database/models/order.model";
 import type { WebSocketMessage } from "../../../../../shared/types/websocket.types";
 import mongoose from "mongoose";
+import type { FastifyInstance } from "fastify";
 
 export const cloudHandlers = {
   /**
@@ -259,3 +260,54 @@ export const cloudHandlers = {
     }
   },
 };
+
+/**
+ * Register cloud WebSocket routes and handlers
+ * This function initializes the WebSocket server for cloud mode
+ */
+export async function registerCloudWebSocket(
+  app: FastifyInstance
+): Promise<void> {
+  // Create a local WebSocket server instance to handle cloud connections
+  const wsServer = new LocalWebSocketServer(app);
+
+  // Initialize the WebSocket server
+  await wsServer.initialize();
+
+  // Register cloud-specific WebSocket routes
+  app.get("/ws/cloud", { websocket: true }, (connection, req) => {
+    console.log("🌩️  Cloud WebSocket connection established");
+
+    // Handle incoming messages from cloud
+    connection.on("message", async (data: Buffer) => {
+      try {
+        const message: WebSocketMessage = JSON.parse(data.toString());
+
+        switch (message.type) {
+          case "student_order":
+            await cloudHandlers.handleStudentOrder(message.payload, wsServer);
+            break;
+
+          case "sync_pending_orders":
+            await cloudHandlers.handleSyncPendingOrders(
+              message.payload,
+              wsServer
+            );
+            break;
+
+          default:
+            console.warn(`⚠️  Unknown message type: ${message.type}`);
+        }
+      } catch (error) {
+        console.error("❌ Error processing cloud message:", error);
+      }
+    });
+
+    // Handle connection close
+    connection.on("close", () => {
+      console.log("🌩️  Cloud WebSocket connection closed");
+    });
+  });
+
+  console.log("✅ Cloud WebSocket routes registered");
+}

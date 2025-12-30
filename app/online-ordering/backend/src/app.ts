@@ -12,6 +12,7 @@ import authRoutes from "./modules/auth/route";
 
 export async function buildApp(): Promise<FastifyInstance> {
   const app = fastify({
+    trustProxy: true, // MUST BE HERE
     logger: {
       level: process.env.LOG_LEVEL || "info",
       transport: {
@@ -29,11 +30,17 @@ export async function buildApp(): Promise<FastifyInstance> {
   // ========== PLUGINS ==========
 
   // CORS - Allow credentials for cookies
-  await app.register(cors, {
-    origin: true,
-    credentials: true,
-  });
+const isProduction = process.env.NODE_ENV === "production";
+await app.register(cors, {
+  // 1. Explicitly name your production URL
+  origin: isProduction ? "https://itmbu-canteen.vercel.app" : true,
 
+  credentials: true,
+
+  // 2. Be explicit with headers so preflight doesn't fail
+  allowedHeaders: ["Content-Type", "Authorization", "Cookie"],
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+});
   // Cookie parser
   await app.register(cookie, {
     secret: process.env.COOKIE_SECRET || "your-cookie-secret-key",
@@ -70,31 +77,18 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(userItemRoute, { prefix: "/api/items" });
 
   // ========== WebSocket Routes ==========
-  const IS_CLOUD = process.env.IS_CLOUD === "true";
 
-  console.log(`\n🔧 Server Mode: ${IS_CLOUD ? "CLOUD" : "LOCAL"}`);
+  console.log(`\n🔧 Server Mode:  "CLOUD"`);
 
-  if (IS_CLOUD) {
-    console.log("☁️  Initializing Cloud WebSocket Server...\n");
+  console.log("☁️  Initializing Cloud WebSocket Server...\n");
 
-    // Dynamic import
-    const { registerCloudWebSocket } = await import("./ws/wsCloud");
+  // Dynamic import
+  const { registerCloudWebSocket } = await import("./ws/wsCloud");
 
-    // Register cloud websocket
-    await registerCloudWebSocket(app);
+  // Register cloud websocket
+  await registerCloudWebSocket(app);
 
-    console.log("✅ Cloud WebSocket Server registered\n");
-  } else {
-    console.log("🏢 Initializing Local WebSocket Server...\n");
-
-    // Dynamic import
-    const { CloudWebSocketServer } = await import("./ws/wsCloud");
-
-    // Register local websocket
-    await new CloudWebSocketServer(app);
-
-    console.log("✅ Local WebSocket Server registered\n");
-  }
+  console.log("✅ Cloud WebSocket Server registered\n");
 
   // ========== ERROR HANDLERS ==========
 
