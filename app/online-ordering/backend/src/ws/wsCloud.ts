@@ -573,7 +573,7 @@ export class CloudWebSocketServer {
           console.error("Failed to send heartbeat:", error);
         }
       }
-    }, 25000);
+    }, 5000);
   }
 
   private stopHeartbeat() {
